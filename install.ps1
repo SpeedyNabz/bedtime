@@ -128,7 +128,8 @@ foreach ($name in 'NoModify', 'NoRepair') { New-ItemProperty $uninstallKey -Name
 New-ItemProperty $uninstallKey -Name 'EstimatedSize' -Value $sizeKb -PropertyType DWord -Force | Out-Null
 
 Step 'Starting Bedtime'
-Start-Process -FilePath $exePath
+# In the background: on a first install Bedtime opens its panel by itself; an update shouldn't pop it up.
+Start-Process -FilePath $exePath -ArgumentList '--background'
 
 # New tray icons start in the ^ overflow; promote ours once Windows has recorded it (best effort).
 for ($i = 0; $i -lt 20; $i++) {
