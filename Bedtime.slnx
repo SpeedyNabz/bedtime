@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bedtime.Core/Bedtime.Core.csproj" />
+    <Project Path="src/Bedtime/Bedtime.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bedtime.Core.Tests/Bedtime.Core.Tests.csproj" />
+  </Folder>
+</Solution>

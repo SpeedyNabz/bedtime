@@ -1,0 +1,185 @@
+<UserControl
+    x:Class="Bedtime.Views.MainView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Bedtime.Controls"
+    xmlns:vm="using:Bedtime.ViewModels">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+
+        <!-- Header: laid out like the clock block of the Calendar flyout ("8:37:52 PM" / "Wednesday 14 October"). -->
+        <Grid Padding="20,16,16,16" ColumnDefinitions="*,Auto">
+            <StackPanel>
+                <TextBlock AutomationProperties.Name="Bedtime" TextLineBounds="Tight">
+                    <Run FontSize="28" FontWeight="SemiBold" Text="{x:Bind ViewModel.BedtimeText, Mode=OneWay}" />
+                    <Run FontSize="14" Text="{x:Bind ViewModel.BedtimeDesignator, Mode=OneWay}" />
+                </TextBlock>
+                <TextBlock Margin="0,10,0,0" Text="{x:Bind ViewModel.WakeLine, Mode=OneWay}" />
+                <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="6">
+                    <FontIcon
+                        FontSize="12"
+                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Glyph="&#xE708;" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+                </StackPanel>
+            </StackPanel>
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Top"
+                AutomationProperties.Name="Settings"
+                Command="{x:Bind ViewModel.OpenSettingsCommand}"
+                Style="{StaticResource IconButtonStyle}"
+                ToolTipService.ToolTip="Settings">
+                <FontIcon FontSize="14" Glyph="&#xE713;" />
+            </Button>
+        </Grid>
+
+        <Rectangle Grid.Row="1" Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+        <!-- Week row, laid out like the month grid ("October 2026", "Mo Tu We ..."). -->
+        <StackPanel Grid.Row="2" Padding="16,14,16,16">
+            <TextBlock
+                Margin="4,0,0,10"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="Wake-up times" />
+
+            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Days}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout
+                        ItemsStretch="Fill"
+                        MaximumRowsOrColumns="7"
+                        MinColumnSpacing="0"
+                        MinItemWidth="40"
+                        MinRowSpacing="0" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DayChipViewModel">
+                        <StackPanel Spacing="6">
+                            <TextBlock HorizontalAlignment="Center" Text="{x:Bind ShortName}" />
+                            <controls:DayChip
+                                Click="OnDayChipClick"
+                                Day="{x:Bind}"
+                                Style="{StaticResource DayChipStyle}">
+                                <StackPanel>
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        FontSize="13"
+                                        Text="{x:Bind TimeText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Margin="0,-2,0,0"
+                                        HorizontalAlignment="Center"
+                                        FontSize="10"
+                                        Opacity="0.85"
+                                        Text="{x:Bind Designator, Mode=OneWay}"
+                                        Visibility="{x:Bind HasDesignator, Mode=OneWay}" />
+                                </StackPanel>
+                            </controls:DayChip>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+
+            <!-- Editor for the selected day. -->
+            <Grid Margin="4,16,0,4" ColumnDefinitions="*,Auto">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind ViewModel.SelectedDayTitle, Mode=OneWay}" />
+                <ToggleSwitch
+                    Grid.Column="1"
+                    MinWidth="0"
+                    AutomationProperties.Name="Wake-up time set"
+                    IsOn="{x:Bind ViewModel.SelectedDayEnabled, Mode=TwoWay}"
+                    OffContent="Off"
+                    OnContent="On" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TimePicker
+                    MinWidth="0"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.Name="Wake-up time"
+                    IsEnabled="{x:Bind ViewModel.SelectedDayEnabled, Mode=OneWay}"
+                    MinuteIncrement="5"
+                    Time="{x:Bind ViewModel.SelectedDayTime, Mode=TwoWay}" />
+                <Button
+                    Grid.Column="1"
+                    AutomationProperties.Name="Copy this wake-up time"
+                    Style="{StaticResource IconButtonStyle}"
+                    ToolTipService.ToolTip="Copy to other days">
+                    <FontIcon FontSize="14" Glyph="&#xE8C8;" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem
+                                Command="{x:Bind ViewModel.CopyToCommand}"
+                                CommandParameter="weekdays"
+                                Text="Copy to weekdays" />
+                            <MenuFlyoutItem
+                                Command="{x:Bind ViewModel.CopyToCommand}"
+                                CommandParameter="weekend"
+                                Text="Copy to weekend" />
+                            <MenuFlyoutItem
+                                Command="{x:Bind ViewModel.CopyToCommand}"
+                                CommandParameter="all"
+                                Text="Copy to every day" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+        </StackPanel>
+
+        <!-- Bottom bar: mirrors "[−] 30 mins [+]   [▶ Focus]". -->
+        <Grid
+            Grid.Row="3"
+            Padding="16,12"
+            Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+            <Button
+                AutomationProperties.Name="Less sleep"
+                Command="{x:Bind ViewModel.DecreaseGoalCommand}"
+                Style="{StaticResource IconButtonStyle}"
+                ToolTipService.ToolTip="Less sleep">
+                <FontIcon FontSize="12" Glyph="&#xE738;" />
+            </Button>
+            <StackPanel
+                Grid.Column="1"
+                MinWidth="60"
+                Margin="8,0"
+                VerticalAlignment="Center"
+                ToolTipService.ToolTip="How much sleep you want. Bedtime is your wake-up time minus this.">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind ViewModel.GoalText, Mode=OneWay}" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="of sleep" />
+            </StackPanel>
+            <Button
+                Grid.Column="2"
+                AutomationProperties.Name="More sleep"
+                Command="{x:Bind ViewModel.IncreaseGoalCommand}"
+                Style="{StaticResource IconButtonStyle}"
+                ToolTipService.ToolTip="More sleep">
+                <FontIcon FontSize="12" Glyph="&#xE710;" />
+            </Button>
+            <ToggleButton
+                Grid.Column="4"
+                AutomationProperties.Name="Skip tonight"
+                IsChecked="{x:Bind ViewModel.IsSkippedTonight, Mode=TwoWay}"
+                IsEnabled="{x:Bind ViewModel.HasNight, Mode=OneWay}"
+                ToolTipService.ToolTip="No reminders until your next wake-up">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE708;" />
+                    <TextBlock Text="Skip tonight" />
+                </StackPanel>
+            </ToggleButton>
+        </Grid>
+    </Grid>
+</UserControl>
