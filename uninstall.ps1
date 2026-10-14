@@ -27,10 +27,11 @@ if ($PSCommandPath -and $PSCommandPath.StartsWith($installDir, [StringComparison
 Write-Host 'Removing Bedtime' -ForegroundColor White
 
 if (Test-Path $exePath) {
-    if (Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue) {
+    $running = Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }
+    if ($running) {
         Start-Process -FilePath $exePath -ArgumentList '--quit' -Wait
-        Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
-        Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue | Stop-Process -Force
+        $running | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
+        $running | Where-Object { -not $_.HasExited } | Stop-Process -Force
     }
     # Removes the notification registration (name, icon and click handler) from Windows.
     Start-Process -FilePath $exePath -ArgumentList '--unregister' -Wait

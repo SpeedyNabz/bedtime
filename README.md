@@ -30,14 +30,24 @@ acrylic background, your accent colour, and light or dark to match the taskbar.
 - Starts with Windows and stays out of the way: the tray tooltip shows how long until bedtime. Reminders missed
   while the PC was asleep aren't replayed hours later.
 
-## Requirements
-
-- Windows 11, x64
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), to build it
-- [Windows App Runtime 2.5](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads) (x64); many PCs
-  already have it, and the installer checks
-
 ## Install
+
+1. Download **`Bedtime-<version>-win-x64.zip`** from the
+   [latest release](https://github.com/SpeedyNabz/bedtime/releases/latest) and extract it.
+2. Right-click **`install.ps1`** and choose **Run with PowerShell**.
+
+That's it: Bedtime opens its panel so you can set your wake-up times. It installs for your account only (no
+administrator rights) to `%LOCALAPPDATA%\Programs\Bedtime`, adds a Start menu shortcut, starts when you sign in,
+and is listed in Settings › Apps. Run a newer release's `install.ps1` to update; your settings are kept.
+
+Bedtime needs Windows 11 (x64) and Microsoft's
+[Windows App Runtime 2.5](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads), which many PCs
+already have. If yours doesn't, the installer offers to download it from Microsoft. The zip includes everything
+else, including .NET.
+
+### Build from source
+
+Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
 git clone https://github.com/SpeedyNabz/bedtime.git
@@ -47,13 +57,6 @@ cd bedtime
 
 Run it from a normal PowerShell window, not "Run as administrator", because Windows doesn't show notifications
 from elevated apps. If scripts are blocked, use `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
-
-The installer:
-- builds Bedtime and installs it to `%LOCALAPPDATA%\Programs\Bedtime`;
-- adds a Start menu shortcut, starts Bedtime when you sign in, and lists it in Settings › Apps;
-- starts Bedtime, which opens its panel the first time so you can set your wake-up times.
-
-Run it again to update; your settings are kept.
 
 ## Using Bedtime
 
@@ -99,6 +102,7 @@ dotnet test tests\Bedtime.Core.Tests   # planner, reminder engine, wording, sett
 dotnet build src\Bedtime               # the app (x64)
 ```
 
+- `tools/package.ps1` builds the release zip (the app with its own copy of .NET, plus the install scripts).
 - `tools/make-icons.ps1` regenerates the icons from the Segoe Fluent Icons font.
 - Set `BEDTIME_DATA_DIR` to run a copy against a different settings folder. Windows allows one running copy per
   exe path, so a dev build and the installed app can run side by side.

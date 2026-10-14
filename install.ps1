@@ -1,11 +1,13 @@
 <#
 .SYNOPSIS
-    Builds Bedtime and installs it for the current user. No administrator rights needed.
+    Installs Bedtime for the current user. No administrator rights needed.
 
 .DESCRIPTION
-    - Publishes a Release build to %LOCALAPPDATA%\Programs\Bedtime
-    - Adds a Start menu shortcut, starts Bedtime at sign-in, and lists it in Settings > Apps > Installed apps
-    - Starts Bedtime and puts its moon icon on the taskbar (rather than under the ^ overflow)
+    - From the release zip, installs the prebuilt app in the "app" folder next to this script.
+      From a clone of the repository, builds it first (needs the .NET 10 SDK).
+    - Installs to %LOCALAPPDATA%\Programs\Bedtime, adds a Start menu shortcut, starts Bedtime when you sign in,
+      and lists it in Settings > Apps > Installed apps.
+    - Starts Bedtime and puts its moon icon on the taskbar (rather than under the ^ overflow).
 
     Run it again to update; your settings are kept. Remove with Settings > Apps, or uninstall.ps1.
 #>
@@ -16,8 +18,22 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $exePath = Join-Path $InstallDir 'Bedtime.exe'
+$runtimeInstallerUrl = 'https://aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe'
+
+# "Run with PowerShell" closes the window as soon as the script ends; keep errors readable in that case.
+$fromExplorer = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").CommandLine -match 'Set-ExecutionPolicy -Scope Process Bypass'
+trap {
+    Write-Host "`n$_" -ForegroundColor Red
+    if ($fromExplorer) { Read-Host 'Press Enter to close' | Out-Null }
+    exit 1
+}
 
 function Step([string]$text) { Write-Host "  $text" -ForegroundColor Cyan }
+
+function Test-WindowsAppRuntime {
+    [bool](Get-AppxPackage -Name 'Microsoft.WindowsAppRuntime.2' |
+        Where-Object { $_.Architecture -eq 'X64' -and [version]$_.Version -ge [version]'2.5.1.0' })
+}
 
 # Windows doesn't show notifications from elevated apps, and an elevated install would start Bedtime elevated.
 $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -25,37 +41,62 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
     throw 'Please run install.ps1 from a normal (not "Run as administrator") PowerShell window.'
 }
 
-# Bedtime uses the shared Windows App Runtime for notifications.
-$runtime = Get-AppxPackage -Name 'Microsoft.WindowsAppRuntime.2' |
-    Where-Object { $_.Architecture -eq 'X64' -and [version]$_.Version -ge [version]'2.5.1.0' }
-if (-not $runtime) {
-    throw 'Bedtime needs the Windows App Runtime 2.5 (x64). Install it from https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads, then run install.ps1 again.'
-}
-
 Write-Host 'Installing Bedtime' -ForegroundColor White
 
-Step 'Building'
-$publishDir = Join-Path $PSScriptRoot 'artifacts\publish'
-dotnet publish (Join-Path $PSScriptRoot 'src\Bedtime\Bedtime.csproj') -c Release -r win-x64 -p:Platform=x64 -o $publishDir --nologo -v quiet
-if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
+# Bedtime uses Microsoft's shared Windows App Runtime (for its notifications). Offer to install it if missing.
+if (-not (Test-WindowsAppRuntime)) {
+    Write-Host '  Bedtime needs the Windows App Runtime 2.5 from Microsoft, which is not installed.' -ForegroundColor Yellow
+    $answer = Read-Host '  Download and install it now? [Y/n]'
+    if ($answer -match '^\s*n') {
+        throw "Install the Windows App Runtime 2.5 (x64) from $runtimeInstallerUrl, then run install.ps1 again."
+    }
 
-$running = Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue
+    Step 'Downloading the Windows App Runtime'
+    $installer = Join-Path $env:TEMP 'windowsappruntimeinstall-x64.exe'
+    Invoke-WebRequest -Uri $runtimeInstallerUrl -OutFile $installer -UseBasicParsing
+    $signature = Get-AuthenticodeSignature $installer
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+        throw "The downloaded runtime installer isn't signed by Microsoft; not running it."
+    }
+
+    Step 'Installing the Windows App Runtime'
+    Start-Process -FilePath $installer -ArgumentList '--quiet' -Wait
+    Remove-Item $installer -ErrorAction SilentlyContinue
+    if (-not (Test-WindowsAppRuntime)) {
+        throw "The Windows App Runtime still isn't installed. Install it from $runtimeInstallerUrl, then run install.ps1 again."
+    }
+}
+
+$prebuilt = Join-Path $PSScriptRoot 'app'
+if (Test-Path (Join-Path $prebuilt 'Bedtime.exe')) {
+    $sourceDir = $prebuilt
+}
+else {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+        throw 'Building from source needs the .NET 10 SDK (https://dotnet.microsoft.com/download). Or download the ready-made zip from https://github.com/SpeedyNabz/bedtime/releases/latest.'
+    }
+    Step 'Building'
+    $sourceDir = Join-Path $PSScriptRoot 'artifacts\publish'
+    dotnet publish (Join-Path $PSScriptRoot 'src\Bedtime\Bedtime.csproj') -c Release -r win-x64 -p:Platform=x64 -o $sourceDir --nologo -v quiet
+    if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
+}
+
+$running = Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }
 if ($running) {
     Step 'Closing the running copy'
-    # Ask it to quit so it removes its tray icon cleanly. Windows only routes --quit between copies of
-    # the same exe path, so use the running copy's own exe.
-    foreach ($process in $running) {
-        if ($process.Path) { Start-Process -FilePath $process.Path -ArgumentList '--quit' -Wait }
-    }
+    # Ask it to quit so it removes its tray icon cleanly (handled by the running copy itself).
+    Start-Process -FilePath $exePath -ArgumentList '--quit' -Wait
     $running | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
-    Get-Process -Name 'Bedtime' -ErrorAction SilentlyContinue | Stop-Process -Force
+    $running | Where-Object { -not $_.HasExited } | Stop-Process -Force
 }
 
 Step "Copying files to $InstallDir"
 New-Item -ItemType Directory -Force $InstallDir | Out-Null
-robocopy $publishDir $InstallDir /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+robocopy $sourceDir $InstallDir /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "Copying files failed (robocopy exit code $LASTEXITCODE)." }
 Copy-Item (Join-Path $PSScriptRoot 'uninstall.ps1') $InstallDir -Force
+# Files from a downloaded zip carry a "from the internet" mark; you chose to install them, so clear it.
+Get-ChildItem $InstallDir -Recurse -File | Unblock-File
 
 Step 'Adding the Start menu shortcut'
 $shell = New-Object -ComObject WScript.Shell
