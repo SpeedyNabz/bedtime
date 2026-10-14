@@ -62,6 +62,8 @@ public sealed class BedtimeSettings
         {
             if (!Days.TryGetValue(day, out var wake) || wake is null)
                 Days[day] = defaults[day];
+            else
+                wake.Time = new TimeOnly(wake.Time.Hour, wake.Time.Minute); // whole minutes, as the time picker shows
         }
 
         if (SleepGoal < MinSleepGoal) SleepGoal = MinSleepGoal;

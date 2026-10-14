@@ -62,7 +62,7 @@ public sealed class SettingsStoreTests : IDisposable
         Directory.CreateDirectory(_dir);
         var store = new SettingsStore(_dir);
         File.WriteAllText(store.FilePath, """
-            { "Days": { "Monday": { "Enabled": true, "Time": "06:00:00" } },
+            { "Days": { "Monday": { "Enabled": true, "Time": "06:00:45" } },
               "SleepGoal": "20:00:00", "ReminderLeadMinutes": [15, -5, 60, 15], "NudgeIntervalMinutes": 0 }
             """);
 

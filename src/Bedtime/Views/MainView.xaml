@@ -102,7 +102,6 @@
                     HorizontalAlignment="Stretch"
                     AutomationProperties.Name="Wake-up time"
                     IsEnabled="{x:Bind ViewModel.SelectedDayEnabled, Mode=OneWay}"
-                    MinuteIncrement="5"
                     Time="{x:Bind ViewModel.SelectedDayTime, Mode=TwoWay}" />
                 <Button
                     Grid.Column="1"
