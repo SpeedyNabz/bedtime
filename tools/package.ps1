@@ -44,7 +44,13 @@ UNINSTALL
   Settings > Apps > Installed apps > Bedtime > Uninstall
 "@
 
-Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip -CompressionLevel Optimal
+# Freshly published files can be briefly locked (e.g. by antivirus scanning), which makes Compress-Archive fail
+# without a terminating error; check for the zip and retry.
+for ($attempt = 1; -not (Test-Path $zip); $attempt++) {
+    if ($attempt -gt 3) { throw "Could not create $zip." }
+    if ($attempt -gt 1) { Start-Sleep -Seconds 3 }
+    Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip -CompressionLevel Optimal -ErrorAction Continue
+}
 $file = Get-Item $zip
 Write-Host ("{0} ({1:N1} MB)" -f $file.FullName, ($file.Length / 1MB)) -ForegroundColor Green
 Write-Host "SHA-256 $((Get-FileHash $zip -Algorithm SHA256).Hash)"
